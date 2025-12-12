@@ -2,39 +2,43 @@ services:
   # 1. Banco de Dados PostgreSQL Gerenciado
   - type: pserv
     name: p2-database
-    plan: free # Linhas 4 e 5 corrigidas (removido databaseName e user)
+    plan: free
 
-  # 2. Serviço de Backend (Node.js)
+  # 2. Serviço de Backend (Node.js/Docker)
   - type: web
     name: p2-backend
     dockerContext: .
-    dockerfilePath: Dockerfile # 🚨 Corrigido: dockerfile -> dockerfilePath
+    dockerfilePath: Dockerfile # Corrigido
     autoDeploy: true
-    env: node
+    # 🚨 CRÍTICO: REMOVIDO 'env: node' para forçar o deploy Docker
     plan: free
-    # 🚨 Removido 'port: 3001' (Linha 14 corrigida)
+    # Removido 'port: 3001'
     
     buildCommand: npm install
     startCommand: node app.js 
     
     envVars:
-      # 🚨 CORREÇÃO DE SINTAXE: Mapeamento da URL de Conexão do PostgreSQL
+      # CORREÇÃO DE SINTAXE: Usando o formato aninhado para referenciar serviços
       - key: DATABASE_URL
-        value: ${{ fromDatabase.p2-database.connectionString }} # Sintaxe correta
+        value:
+          fromDatabase: p2-database
+          property: connectionString
       
       - key: NODE_ENV
         value: production
 
-  # 3. Serviço de Frontend (React/Vite com Nginx)
+  # 3. Serviço de Frontend (React/Vite com Nginx/Docker)
   - type: web
     name: p2-frontend
     dockerContext: ./frontend
-    dockerfilePath: Dockerfile # 🚨 Corrigido: dockerfile -> dockerfilePath
+    dockerfilePath: Dockerfile # Corrigido
     autoDeploy: true
     plan: free
-    # 🚨 Removido 'port: 80' (Linha 39 corrigida)
+    # Removido 'port: 80'
     
     envVars:
-      # 🚨 CORREÇÃO DE SINTAXE: Mapeia a URL pública do Backend
+      # CORREÇÃO DE SINTAXE: Mapeia a URL pública do Backend
       - key: VITE_API_URL
-        value: ${{ fromService.p2-backend.defaultUrl }} # Sintaxe correta
+        value:
+          fromService: p2-backend
+          property: defaultUrl
