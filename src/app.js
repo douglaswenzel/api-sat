@@ -1,6 +1,7 @@
 const express = require('express');
 const mysql = require('mysql');
 const cors = require('cors');
+const { Pool } = require('pg');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -11,42 +12,55 @@ const crypto = require('crypto');
 const app = express();
 
 const corsOptions = {
-    origin: 'http://localhost:8080', 
+    origin: process.env.NODE_ENV === 'production' ? '*' : 'http://localhost:8080',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 204
 };
-
 app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- CORREÇÃO 1: USAR VARIÁVEIS DE AMBIENTE E O NOME DO SERVIÇO 'mysql' ---
-const DB_HOST = process.env.DB_HOST || 'mysql'; 
-const DB_USER = process.env.DB_USER || 'root';
-const DB_PASSWORD = process.env.DB_PASSWORD || 'password';
-const DB_DATABASE = process.env.DB_DATABASE || 'vulnerable_db';
+let db;
+let dbPing;
+let isPostgreSQL = false;
 
-const db = mysql.createConnection({
-    host: DB_HOST,
-    user: DB_USER,
-    password: DB_PASSWORD,
-    database: DB_DATABASE
-});
+if (process.env.DATABASE_URL) {
+    // Conexão PostgreSQL para Render
+    isPostgreSQL = true;
+    const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+    });
+    db = pool;
+    dbPing = (callback) => {
+        pool.query('SELECT 1', (err, res) => callback(err));
+    };
 
-// Lidar com desconexão do DB
-db.on('error', (err) => {
-    console.error('ERRO FATAL NO BANCO DE DADOS:', err.code);
-    // Em um ambiente de produção, aqui deveria haver uma lógica de reconexão.
-});
-// -------------------------------------------------------------------------
+} else {
+    // Conexão MySQL para Local/Docker Compose
+    const DB_HOST = process.env.DB_HOST || 'mysql';
+    const DB_USER = process.env.DB_USER || 'root';
+    const DB_PASSWORD = process.env.DB_PASSWORD || 'password';
+    const DB_DATABASE = process.env.DB_DATABASE || 'vulnerable_db';
 
+    db = mysql.createConnection({
+        host: DB_HOST,
+        user: DB_USER,
+        password: DB_PASSWORD,
+        database: DB_DATABASE
+    });
+    dbPing = db.ping.bind(db);
+    
+    db.on('error', (err) => {
+        console.error('ERRO FATAL NO BANCO DE DADOS (MYSQL):', err.code);
+    });
+}
 
-// --- CORREÇÃO 2: ADICIONAR ENDPOINT /HEALTH ---
+// ADICIONAR ENDPOINT /HEALTH
 app.get('/health', (req, res) => {
-    // Usa db.ping para verificar a conexão sem fazer uma query completa
-    db.ping(err => {
+    dbPing(err => {
         const dbStatus = err ? 'disconnected' : 'connected';
         const status = dbStatus === 'connected' ? 'healthy' : 'unhealthy';
 
@@ -54,15 +68,14 @@ app.get('/health', (req, res) => {
             console.error('DB Health Check Failed:', err.message);
         }
 
-        // Retorna 200/healthy ou 503/unhealthy dependendo do status do DB
         res.status(dbStatus === 'connected' ? 200 : 503).json({
             status: status,
             database: dbStatus,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            dbType: isPostgreSQL ? 'PostgreSQL' : 'MySQL'
         });
     });
 });
-// ---------------------------------------------
 
 
 app.get('/users/:id', (req, res) => {
@@ -73,7 +86,7 @@ app.get('/users/:id', (req, res) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        res.json(results);
+        res.json(results.rows || results);
     });
 });
 
@@ -83,7 +96,8 @@ app.post('/login', (req, res) => {
 
     db.query(query, (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true, user: result });
+        const rows = result.rows || result;
+        res.json({ success: true, user: rows });
     });
 });
 
