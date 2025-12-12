@@ -1,36 +1,30 @@
 services:
-  # 1. Banco de Dados (pserv)
-  - type: pserv
-    name: p2-database
-    plan: free
-    runtime: postgresql           # 👈 IMPORTANTE: define o tipo correto
-    disk:
-      name: data
-      mountPath: /var/lib/postgresql
-      sizeGB: 1
-
-  # 2. Backend em Docker
+  # Backend - Docker
   - type: web
     name: p2-backend
-    runtime: docker               # 👈 OBRIGATÓRIO
+    runtime: docker
     dockerContext: .
     dockerfilePath: Dockerfile
     autoDeploy: true
     plan: free
     envVars:
       - key: DATABASE_URL
-        value: ${fromDatabase.p2-database.connectionString}
+        fromDatabase:
+          name: p2-database
+          property: connectionString
       - key: NODE_ENV
         value: production
 
-  # 3. Frontend em Docker
+  # Frontend - Docker
   - type: web
     name: p2-frontend
-    runtime: docker               # 👈 OBRIGATÓRIO
+    runtime: docker
     dockerContext: ./frontend
     dockerfilePath: Dockerfile
     autoDeploy: true
     plan: free
     envVars:
       - key: VITE_API_URL
-        value: ${fromService.p2-backend.defaultUrl}
+        fromService:
+          name: p2-backend
+          property: defaultUrl
