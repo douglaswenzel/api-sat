@@ -93,7 +93,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
         with:
           branch: main
-          plugins: |
-            @semantic-release/commit-analyzer
-            @semantic-release/release-notes-generator
-            @semantic-release/github
