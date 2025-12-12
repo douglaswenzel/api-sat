@@ -8,8 +8,20 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const { URL } = require('url'); // Importar URL
 
 const app = express();
+
+// ----------------------------------------------------
+// IMPORTS DE ROTAS MODULARIZADAS
+// Assumindo que os arquivos de rota estão em ./routes
+// users.js usa o prefixo /api/users
+const usersRouter = require('./routes/users');
+// vulnerabilities.js contém rotas de exemplo de vulnerabilidades
+const vulnerabilitiesRouter = require('./routes/vulnerabilities');
+// health.js é o router de health check
+const healthRouter = require('./routes/health');
+// ----------------------------------------------------
 
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production' ? '*' : 'http://localhost:8080',
@@ -33,7 +45,8 @@ if (process.env.DATABASE_URL) {
         connectionString: process.env.DATABASE_URL,
         ssl: { rejectUnauthorized: false }
     });
-    db = pool;
+    // Exporta o pool para ser usado pelos routers (como users.js)
+    db = pool; 
     dbPing = (callback) => {
         pool.query('SELECT 1', (err, res) => callback(err));
     };
@@ -58,48 +71,32 @@ if (process.env.DATABASE_URL) {
     });
 }
 
-// ADICIONAR ENDPOINT /HEALTH
-app.get('/health', (req, res) => {
-    dbPing(err => {
-        const dbStatus = err ? 'disconnected' : 'connected';
-        const status = dbStatus === 'connected' ? 'healthy' : 'unhealthy';
+// ----------------------------------------------------
+// MONTAGEM DAS ROTAS MODULARIZADAS
+// ----------------------------------------------------
 
-        if (err) {
-            console.error('DB Health Check Failed:', err.message);
-        }
+// Rota de Usuários Segura (users.js)
+// Accessível em: /api/users
+app.use('/api/users', usersRouter);
 
-        res.status(dbStatus === 'connected' ? 200 : 503).json({
-            status: status,
-            database: dbStatus,
-            timestamp: new Date().toISOString(),
-            dbType: isPostgreSQL ? 'PostgreSQL' : 'MySQL'
-        });
-    });
-});
+// Rota de Health Check (health.js)
+// Accessível em: /api/health (ou ajuste o prefixo se preferir)
+// Eu montei em /health para manter o path simples: /health
+app.use('/health', healthRouter); 
+
+// Rotas de Vulnerabilidades/Exemplo (vulnerabilities.js)
+// Accessível em: /vulnerabilities/login, /vulnerabilities/fetch-url, etc.
+app.use('/vulnerabilities', vulnerabilitiesRouter); 
 
 
-app.get('/users/:id', (req, res) => {
-    const userId = req.params.id;
-    const query = `SELECT * FROM users WHERE id = ${userId}`;
+// ----------------------------------------------------
+// ROTAS VULNERÁVEIS DE EXEMPLO (MANTIDAS EM-LINHA OU RENOMEADAS)
+// Estas são as rotas não resolvidas pelos routers importados acima
+// ----------------------------------------------------
 
-    db.query(query, (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json(results.rows || results);
-    });
-});
-
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    const query = `SELECT * FROM users WHERE username='${username}' AND password='${password}'`;
-
-    db.query(query, (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        const rows = result.rows || result;
-        res.json({ success: true, user: rows });
-    });
-});
+// 🚨 REMOVENDO ROTAS REDUNDANTES:
+// As rotas /users/:id, /login, /post, /calculate, /fetch-url, etc. foram removidas daqui
+// pois agora são tratadas pelos routers.
 
 app.post('/execute', (req, res) => {
     const command = req.body.command || '';
@@ -147,62 +144,7 @@ app.post('/encrypt', (req, res) => {
     res.json({ encrypted, algorithm: 'md5', key: weakKey });
 });
 
-app.get('/fetch-url', (req, res) => {
-    const target = req.query.url;
-    if (!target) return res.status(400).json({ error: 'PARÂMETRO URL OBRIGATÓRIO' });
-
-    try {
-        const parsed = new URL(target);
-        const getter = parsed.protocol === 'https:' ? https : http;
-
-        const request = getter.get(parsed, (response) => {
-            let data = '';
-            response.on('data', (chunk) => (data += chunk));
-            response.on('end', () => res.send(data));
-        });
-
-        request.on('error', (err) => {
-            res.status(500).json({ error: err.message });
-        });
-
-        request.setTimeout(4000, () => request.abort());
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/calculate', (req, res) => {
-    const expression = req.body.expression;
-    try {
-        const result = eval(expression);
-        res.json({ result });
-    } catch (err) {
-        res.status(400).json({ error: 'EXPRESSÃO INVÁLIDA' });
-    }
-});
-
-app.get('/validate-email', (req, res) => {
-    const email = req.query.email || '';
-    const regex = /^([a-zA-Z0-9_\.-]+)@([\da-z\.-]+)\.([a-z\.]{2,6})$/;
-    res.json({ valid: regex.test(email) });
-});
-
-app.get('/generate-token', (req, res) => {
-    const token = Math.random().toString(36).substring(2, 12);
-    res.json({ token });
-});
-
-app.post('/merge', (req, res) => {
-    const base = {};
-    Object.assign(base, req.body);
-    res.json(base);
-});
-
-app.post('/users', (req, res) => {
-    const user = req.body;
-    res.json(user);
-});
-
+// A rota /verify-token em app.js é vulnerável a Timing Attack
 app.post('/verify-token', (req, res) => {
     const token = req.body.token || '';
     const realToken = 'super-secret-token-12345';
