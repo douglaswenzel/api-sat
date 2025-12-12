@@ -44,7 +44,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=douglaswenzel_api-sat
+            -Dsonar.projectKey=p2-douglas-wenzel
             -Dsonar.organization=douglaswenzel
             -Dsonar.sources=./
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
