@@ -1,3 +1,5 @@
+yaml-version: 2
+
 services:
   - type: pserv
     name: p2-database
@@ -9,8 +11,6 @@ services:
     dockerfilePath: Dockerfile
     autoDeploy: true
     plan: free
-    # 🚨 ADICIONADO: Start command para satisfazer o validador
-    startCommand: node app.js 
     envVars:
       - key: DATABASE_URL
         value: ${{ fromDatabase.p2-database.connectionString }}
@@ -23,8 +23,6 @@ services:
     dockerfilePath: Dockerfile
     autoDeploy: true
     plan: free
-    # 🚨 ADICIONADO: Start command para satisfazer o validador
-    startCommand: npm start
     envVars:
       - key: VITE_API_URL
         value: ${{ fromService.p2-backend.defaultUrl }}
