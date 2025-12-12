@@ -1,5 +1,5 @@
 services:
-  # Backend
+  # BACKEND (Docker)
   - type: web
     name: p2-backend
     runtime: docker
@@ -13,7 +13,7 @@ services:
           name: p2-database
           property: connectionString
 
-  # Frontend
+  # FRONTEND (Docker)
   - type: web
     name: p2-frontend
     runtime: docker
@@ -23,4 +23,4 @@ services:
     autoDeploy: true
     envVars:
       - key: VITE_API_URL
-        value: ""
+        value: https://p2-backend.onrender.com
