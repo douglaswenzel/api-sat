@@ -1,31 +1,36 @@
 services:
-  # 1. Banco de Dados (pserv) - Não adicione startCommand aqui
+  # 1. Banco de Dados (pserv)
   - type: pserv
     name: p2-database
     plan: free
+    runtime: postgresql           # 👈 IMPORTANTE: define o tipo correto
+    disk:
+      name: data
+      mountPath: /var/lib/postgresql
+      sizeGB: 1
 
-  # 2. Serviço de Backend (web/Docker)
+  # 2. Backend em Docker
   - type: web
     name: p2-backend
+    runtime: docker               # 👈 OBRIGATÓRIO
     dockerContext: .
     dockerfilePath: Dockerfile
     autoDeploy: true
     plan: free
-    startCommand: node app.js # WORKAROUND: Satisfaz o validador
     envVars:
       - key: DATABASE_URL
-        value: ${{ fromDatabase.p2-database.connectionString }}
+        value: ${fromDatabase.p2-database.connectionString}
       - key: NODE_ENV
         value: production
 
-  # 3. Serviço de Frontend (web/Docker)
+  # 3. Frontend em Docker
   - type: web
     name: p2-frontend
+    runtime: docker               # 👈 OBRIGATÓRIO
     dockerContext: ./frontend
     dockerfilePath: Dockerfile
     autoDeploy: true
     plan: free
-    startCommand: npm start # WORKAROUND: Satisfaz o validador (assumindo npm start no container)
     envVars:
       - key: VITE_API_URL
-        value: ${{ fromService.p2-backend.defaultUrl }}
+        value: ${fromService.p2-backend.defaultUrl}
