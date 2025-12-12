@@ -1,12 +1,14 @@
-yaml-version: 2
-
 services:
   - type: pserv
     name: p2-database
     plan: free
 
+  # Service: p2-backend
   - type: web
     name: p2-backend
+    # 🚨 Adicionado runtime: docker para forçar a validação
+    # Obs: Se isso falhar, tente a versão SEM a linha abaixo
+    runtime: docker 
     dockerContext: .
     dockerfilePath: Dockerfile
     autoDeploy: true
@@ -17,8 +19,10 @@ services:
       - key: NODE_ENV
         value: production
 
+  # Service: p2-frontend
   - type: web
     name: p2-frontend
+    runtime: docker # 🚨 Adicionado runtime: docker para forçar a validação
     dockerContext: ./frontend
     dockerfilePath: Dockerfile
     autoDeploy: true
