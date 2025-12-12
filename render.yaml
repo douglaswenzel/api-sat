@@ -10,7 +10,7 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: api_sat_postgres
+          name: api_sat_database
           property: connectionString
 
   # FRONTEND (Docker)
