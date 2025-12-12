@@ -11,9 +11,7 @@ services:
     plan: free
     envVars:
       - key: DATABASE_URL
-        value:
-          fromDatabase: p2-database
-          property: connectionString
+        value: ${{ fromDatabase.p2-database.connectionString }}
       - key: NODE_ENV
         value: production
 
@@ -25,6 +23,4 @@ services:
     plan: free
     envVars:
       - key: VITE_API_URL
-        value:
-          fromService: p2-backend
-          property: defaultUrl
+        value: ${{ fromService.p2-backend.defaultUrl }}
